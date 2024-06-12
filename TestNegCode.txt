@@ -1,0 +1,206 @@
+use Data
+
+gen StudyPeriod=1 if TestDate<td(19dec2021)
+replace StudyPeriod=0 if StudyPeriod==.
+tab StudyPeriod
+
+keep if StudyPeriod==1 
+
+gen CaseControl=1 if result==1 
+replace CaseControl=0 if result==0 
+label define CaseControl 1"Positive test" 0"Negative test"
+label value CaseControl CaseControl
+
+drop if reasonfortesting==.
+
+gen newid=_n
+
+joinby id using positives, unmatched(master)
+
+gen check=TestDate-Positivedate if _merge==3
+gen sel=1 if check>0 & check<90
+bys newid: egen maxsel=max(sel)
+drop if maxsel==1
+
+sort newid TestDate Positivedate
+by newid: egen seq=seq()
+keep if seq==1
+
+gen PriorInf=1 if TestDate>PositiveDate
+replace PriorInf=0 if PriorInf==.
+label define PriorInf 0"No prior infection" 1"Prior infection"
+label values PriorInf PriorInf
+
+gen VaccineDose=4 if ImmDateDose4<TestDate 
+replace VaccineDose=3 if ImmDateDose3<TestDate & VaccineDose==. 
+replace VaccineDose=2 if ImmDateDose2<TestDate & VaccineDose==. 
+replace VaccineDose=1 if ImmDateDose1<=TestDate & VaccineDose==. 
+replace VaccineDose=0 if VaccineDose==. 
+label define VaccineDose 0"Unvaccinated" 1"1 dose" 2"2 doses" 3"3 doses" 4"4 doses" 
+label values VaccineDose VaccineDose
+
+recast int Sex Age Nationality ComorbCount Assay reasonfortesting VaccineDose WeekNumber
+calipmatch in 1/8295718, gen(match_id) casevar(CaseControl) maxmatches(2) calipermatch(Sex Age Nationality ComorbCount Assay reasonfortesting VaccineDose WeekNumber) caliperwidth(2 8 200 4 2 9 5 6) exactmatch(Sex Age Nationality ComorbCount Assay reasonfortesting VaccineDose WeekNumber) 
+
+drop if match_id==.
+
+cc  CaseControl PriorInf 
+clogit CaseControl i.PriorInf, group(match_id) or
+di 1-OR
+
+gen timetoInf=TestDate-InfDate 
+summ timetoInf
+replace timetoInf=0 if timetoInf==.
+
+gen Exposure1=1 if timetoInf>=90 & timetoInf<180
+replace Exposure1=0 if timetoInf==0
+duplicates tag maxserial if Exposure1~=., gen(tag)
+tab tag
+cc  CaseControl Exposure1 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure1 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+
+gen Exposure2=1 if timetoInf>=180 & timetoInf<270
+replace Exposure2=0 if timetoInf==0
+duplicates tag maxserial if Exposure2~=., gen(tag)
+tab tag
+cc  CaseControl Exposure2 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure2 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+
+gen Exposure3=1 if timetoInf>=270 & timetoInf<360
+replace Exposure3=0 if timetoInf==0
+duplicates tag maxserial if Exposure3~=., gen(tag)
+tab tag
+cc  CaseControl Exposure3 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure3 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+
+gen Exposure4=1 if timetoInf>=360 & timetoInf~=.
+replace Exposure4=0 if timetoInf==0
+duplicates tag maxserial if Exposure4~=., gen(tag)
+tab tag
+cc  CaseControl Exposure4 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure4 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+
+gen Exposure5=1 if timetoInf<360 & timetoInf~=.
+replace Exposure5=0 if timetoInf==0
+duplicates tag maxserial if Exposure5~=., gen(tag)
+tab tag
+cc  CaseControl Exposure5 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure5 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+clear all
+
+use Data
+
+gen StudyPeriod=1 if TestDate>=td(19dec2021)
+replace StudyPeriod=0 if StudyPeriod==.
+tab StudyPeriod
+
+gen CaseControl=1 if result==1 
+replace CaseControl=0 if result==0 
+label define CaseControl 1"Positive test" 0"Negative test"
+label value CaseControl CaseControl
+
+keep if StudyPeriod==1 
+
+drop if reasonfortesting==.
+
+gen newid=_n
+
+joinby id using positives, unmatched(master)
+
+gen check=TestDate-Positivedate if _merge==3
+gen sel=1 if check>0 & check<90
+bys newid: egen maxsel=max(sel)
+drop if maxsel==1
+drop check
+
+sort newid TestDate Positivedate
+by newid: egen seq=seq()
+keep if seq==1
+
+drop if Positivedate<td(19dec2021)
+
+gen PriorInf=1 if TestDate>PositiveDate
+replace PriorInf=0 if PriorInf==.
+label define PriorInf 0"No prior infection" 1"Prior infection"
+label values PriorInf PriorInf
+
+gen VaccineDose=4 if ImmDateDose4<TestDate 
+replace VaccineDose=3 if ImmDateDose3<TestDate & VaccineDose==. 
+replace VaccineDose=2 if ImmDateDose2<TestDate & VaccineDose==. 
+replace VaccineDose=1 if ImmDateDose1<=TestDate & VaccineDose==. 
+replace VaccineDose=0 if VaccineDose==. 
+label define VaccineDose 0"Unvaccinated" 1"1 dose" 2"2 doses" 3"3 doses" 4"4 doses" 
+label values VaccineDose VaccineDose
+
+recast int Sex Age Nationality ComorbCount Assay reasonfortesting VaccineDose WeekNumber
+calipmatch in 1/8295718, gen(match_id) casevar(CaseControl) maxmatches(2) calipermatch(Sex Age Nationality ComorbCount Assay reasonfortesting VaccineDose WeekNumber) caliperwidth(2 8 200 4 2 9 5 6) exactmatch(Sex Age Nationality ComorbCount Assay reasonfortesting VaccineDose WeekNumber) 
+
+drop if match_id==.
+
+cc  CaseControl PriorInf 
+clogit CaseControl i.PriorInf, group(match_id) or
+di 1-OR
+
+gen timetoInf=TestDate-InfDate 
+summ timetoInf
+replace timetoInf=0 if timetoInf==.
+
+gen Exposure1=1 if timetoInf>=90 & timetoInf<180
+replace Exposure1=0 if timetoInf==0
+duplicates tag maxserial if Exposure1~=., gen(tag)
+tab tag
+cc  CaseControl Exposure1 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure1 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+
+gen Exposure2=1 if timetoInf>=180 & timetoInf<270
+replace Exposure2=0 if timetoInf==0
+duplicates tag maxserial if Exposure2~=., gen(tag)
+tab tag
+cc  CaseControl Exposure2 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure2 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+
+gen Exposure3=1 if timetoInf>=270 & timetoInf<360
+replace Exposure3=0 if timetoInf==0
+duplicates tag maxserial if Exposure3~=., gen(tag)
+tab tag
+cc  CaseControl Exposure3 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure3 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+
+gen Exposure4=1 if timetoInf>=360 & timetoInf~=.
+replace Exposure4=0 if timetoInf==0
+duplicates tag maxserial if Exposure4~=., gen(tag)
+tab tag
+cc  CaseControl Exposure4 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure4 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+
+gen Exposure5=1 if timetoInf<360 & timetoInf~=.
+replace Exposure5=0 if timetoInf==0
+duplicates tag maxserial if Exposure5~=., gen(tag)
+tab tag
+cc  CaseControl Exposure5 if tag~=0 & tag~=.
+clogit CaseControl i.Exposure5 if tag~=0 & tag~=., group(match_id) or
+di 1-OR
+drop tag
+clear all
+
+
+
+
